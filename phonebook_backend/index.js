@@ -1,7 +1,7 @@
 
 const express = require('express')
 const app = express()
-// const cors = require('cors')
+const cors = require('cors')
 
 
 var morgan = require('morgan')
@@ -12,7 +12,7 @@ var morgan = require('morgan')
 // }
 morgan.token('bodyRequest', (req , res) => {return JSON.stringify(req.body)})
 
-// app.use(cors())
+app.use(cors())
 app.use(express.json())
 app.use(morgan(":date[web] :method :url :status :res[content-length] - :response-time ms :user-agent :bodyRequest"));
 app.use(express.static('dist'))
@@ -61,7 +61,7 @@ app.post('/api/persons', (request, response) => {
   }
 
   const newPerson = {
-    id: (Math.random() * 20000),
+    id: (persons.length + 1).toString(),
     name: body.name,
     number: body.number
   }
@@ -81,14 +81,33 @@ app.get('/api/persons/:id', (request, response) => {
   response.status(200).json(person)
 })
 
+app.put('/api/persons/:id', (request, response) => {
+  const existingPerson = persons.find(person => person.id === request.params.id);
+  if (!existingPerson){
+    return response.status(400).json({error: "Person not found"})
+
+  }
+  else if (request.body.number === null || request.body.number === "" 
+    || request.body.name === null || request.body.name === "") {
+    return response.status(400).json({error: "Name or number is missing"})
+  }
+  const updatedPerson = {
+    ...existingPerson,
+    name:request.body.name,
+    number:request.body.number
+  }
+  persons = persons.map(person => person.id === request.params.id ? updatedPerson : person)
+  response.status(200).json(updatedPerson)
+  })
+
 app.delete('/api/persons/:id', (request, response) => {
-  const id = request.params.id
-  const personExist = persons.find(person => person.id === id) ;
+
+  const personExist = persons.find(person => person.id === request.params.id) ;
   if (!personExist) {
      return response.status(400).json({error: 'Person has already been deleted'})
   }
-  persons = persons.filter(person => person.id !== id)
-  response.status(200).json({error: 'Person succesfully deleted'})
+  persons = persons.filter(person => person.id !== request.params.id)
+  response.status(200).json({meessage: 'Person succesfully deleted' ,...personExist})
 })
 
 app.get('/api/info',(request,response) => {
