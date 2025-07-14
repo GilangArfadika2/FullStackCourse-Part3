@@ -159,7 +159,7 @@ app.delete('/api/persons/:id', (request, response,next) => {
        return response.status(400).json({error: 'Person has already been deleted'})
      } else {
       PhonebookModel.findOneAndDelete({ _id:request.params.id}).then(deleteResult => {
-         response.status(200).json({meessage: 'Person succesfully deleted' ,deleteResult})
+         return response.status(200).json({meessage: 'Person succesfully deleted' ,name : deleteResult.name})
       }).catch(error => next(error))
      }
     }).catch(error => next(error))
