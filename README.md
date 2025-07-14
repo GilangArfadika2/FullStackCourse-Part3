@@ -18,7 +18,6 @@ part3/
 ├── phonebook-backend/
 │   ├── index.js
 │   ├── models/
-│   ├── controllers/
 │   ├── .env
 │   └── ...
 </code></pre>
