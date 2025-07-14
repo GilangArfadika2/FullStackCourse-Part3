@@ -1,23 +1,3 @@
-
-const express = require('express')
-const app = express()
-const cors = require('cors')
-
-
-var morgan = require('morgan')
-
-
-// const unknownEndpoint = (request, response) => {
-//   response.status(404).send({ error: 'unknown endpoint' })
-// }
-morgan.token('bodyRequest', (req , res) => {return JSON.stringify(req.body)})
-
-app.use(cors())
-app.use(express.json())
-app.use(morgan(":date[web] :method :url :status :res[content-length] - :response-time ms :user-agent :bodyRequest"));
-app.use(express.static('dist'))
-
-
 let persons = [
     { 
       "id": "1",
@@ -42,83 +22,183 @@ let persons = [
 ]
 
 
+//  DATABASE CONNECTION AND SCHEMA DEFINITION
+const PhonebookModel = require('./models/phonebookModels');
+PhonebookModel.find({}).then(result => {
+  let queryPromises = [];
+  if (result.length === 0) {
+    queryPromises = persons.map(person => {
+      const existingPerson = new PhonebookModel({
+        id: person.id,
+        name: person.name,
+        number: person.number
+      })
+      return existingPerson.save().then(result => {
+        `added existing ${result.name} number ${result.number} to phonebook`
+      })
+    })
+  }
+  Promise.all(queryPromises).then(() => {
+    console.log('All phonebook entries processed');
+    // mongoose.connection.close();
+  }).catch(err => {
+    console.error('Error processing phonebook entries:', err);
+    // mongoose.connection.close();
+  })
+}) 
+// APPLICATION LOGIC TO HANDLE PHONEBOOK OPERATIONS
+const express = require('express')
+const app = express()
+const cors = require('cors')
+var morgan = require('morgan')
+morgan.token('bodyRequest', (req , res) => {return JSON.stringify(req.body)})
+app.use(cors())
+app.use(express.json())
+app.use(morgan(":date[web] :method :url :status :res[content-length] - :response-time ms :user-agent :bodyRequest"));
+app.use(express.static('dist'))
 
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: 'unknown endpoint' })
+}
 app.get('/', (request, response) => {
   response.send('<h1>Hello World!</h1>')
 })
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', (request, response,next) => {
   const body = request.body
   
   if (!body.name || !body.number) {
     return response.status(400).json({"error": 'Name or number is missing'})
   }
  
-  const personExist = persons.find(person => person.name === body.name)
+  // const personExist = persons.find(person => person.name === body.name)
+  const personExist = PhonebookModel.findOne({name: body.name}).then(personExist => {
+      console.log(personExist);
+      if (personExist) {
+         return response.status(400).json({"error" : 'name must be unique'})
+      } else{
+         PhonebookModel.find({}).then(result => {
+          const newPerson = new PhonebookModel({
+          id: (result.length ) .toString(),
+          name: body.name,
+          number: body.number
+          })
+          newPerson.save().then(result => response.status(200).json(result) )
+        }).catch(error => next(error))
+      }
+  }
+  ).catch(error => next(error))
+ 
   
-  if (personExist) {
-    return response.status(400).json({"error" : 'name must be unique'})
-  }
-
-  const newPerson = {
-    id: (persons.length + 1).toString(),
-    name: body.name,
-    number: body.number
-  }
-  persons = persons.concat(newPerson);
-  response.status(200).json(newPerson)
+  
+  // persons = persons.concat(newPerson);
+  // response.status(200).json(newPerson)
 })
 
-app.get('/api/persons', (request, response) => {
-  response.json(persons)
+app.get('/api/persons', (request, response,next) => {
+  PhonebookModel.find({}).then(result => {
+    response.json(result);
+  }).catch(error => next(error))
+  // response.json(persons)
 })
-app.get('/api/persons/:id', (request, response) => {
-  const id = request.params.id
-  const person = persons.find(person => person.id === id)
-  if (!person) {
-    return response.status(400).json({error: 'Person not found'})
-  }
-  response.status(200).json(person)
+app.get('/api/persons/:id', (request, response,next) => {
+  // const id = request.params.id
+  // const person = persons.find(person => person.id === id)
+  PhonebookModel.findOne({ _id:request.params.id}).then(result =>{
+     if (!result ){
+       return response.status(400).json({error: "Person not found"})
+    } else {
+       response.status(200).json(result)
+    }
+  }).catch(error => next(error))
 })
 
-app.put('/api/persons/:id', (request, response) => {
-  const existingPerson = persons.find(person => person.id === request.params.id);
-  if (!existingPerson){
-    return response.status(400).json({error: "Person not found"})
+app.put('/api/persons/:id', (request, response,next) => {
+  // const existingPerson = persons.find(person => person.id === request.params.id);
+  PhonebookModel.findOne({ _id:request.params.id}).then(result =>{
+     if (!result ){
+       return response.status(400).json({error: "Person not found"})
+    }  else if (request.body.number === null || request.body.number === "" 
+      || request.body.name === null || request.body.name === "") {
+      return response.status(400).json({error: "Name or number is missing"})
+    } else {
+      const updatedPerson = {
+        name: request.body.name,
+        number: request.body.number
 
-  }
-  else if (request.body.number === null || request.body.number === "" 
-    || request.body.name === null || request.body.name === "") {
-    return response.status(400).json({error: "Name or number is missing"})
-  }
-  const updatedPerson = {
-    ...existingPerson,
-    name:request.body.name,
-    number:request.body.number
-  }
-  persons = persons.map(person => person.id === request.params.id ? updatedPerson : person)
-  response.status(200).json(updatedPerson)
+      }
+      PhonebookModel.findOneAndUpdate({ _id: request.params.id}, updatedPerson, {new: true}).then(
+        updatedResult => {
+          response.status(200).json(updatedResult)
+        }
+      );
+    }
+  } 
+  ).catch(error => next(error))
+  // if (!existingPerson){
+  //   return response.status(400).json({error: "Person not found"})
+
+  // }
+  // else if (request.body.number === null || request.body.number === "" 
+  //   || request.body.name === null || request.body.name === "") {
+  //   return response.status(400).json({error: "Name or number is missing"})
+  // }
+  // const updatedPerson = {
+  //   ...existingPerson,
+  //   name:request.body.name,
+  //   number:request.body.number
+  // }
+  // persons = persons.map(person => person.id === request.params.id ? updatedPerson : person)
+  // response.status(200).json(updatedPerson)
   })
 
-app.delete('/api/persons/:id', (request, response) => {
+app.delete('/api/persons/:id', (request, response,next) => {
+   PhonebookModel.findOne({ _id:request.params.id}).then(result =>{
+     if (!result ){
+       return response.status(400).json({error: 'Person has already been deleted'})
+     } else {
+      PhonebookModel.findOneAndDelete({ _id:request.params.id}).then(deleteResult => {
+         response.status(200).json({meessage: 'Person succesfully deleted' ,deleteResult})
+      }).catch(error => next(error))
+     }
+    }).catch(error => next(error))
 
-  const personExist = persons.find(person => person.id === request.params.id) ;
-  if (!personExist) {
-     return response.status(400).json({error: 'Person has already been deleted'})
-  }
-  persons = persons.filter(person => person.id !== request.params.id)
-  response.status(200).json({meessage: 'Person succesfully deleted' ,...personExist})
+
+  // const personExist = persons.find(person => person.id === request.params.id) ;
+  // if (!personExist) {
+  //    return response.status(400).json({error: 'Person has already been deleted'})
+  // }
+  // persons = persons.filter(person => person.id !== request.params.id)
+  // response.status(200).json({meessage: 'Person succesfully deleted' ,...personExist})
 })
 
-app.get('/api/info',(request,response) => {
-  personsSize = persons.length;
-  const now = new Date();
-  const dateString = now.toString();
-  response.status(200).send(`<p> Phonebook has info for ${personsSize} people</p>
-  <p>${dateString}</p>`)
+app.get('/api/info',(request,response,next) => {
+  PhonebookModel.find({}).then(result => {
+    const now = new Date();
+    const dateString = now.toString();
+    response.status(200).send(
+    `<p> Phonebook has info for ${result.length} people</p>\n<p>${dateString}</p>`)
+  }).catch(error => next(error)); 
+  
 })
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
+
+// handler of requests with unknown endpoint
+app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } 
+
+  next(error)
+}
+
+app.use(errorHandler)
