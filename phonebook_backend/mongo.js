@@ -31,20 +31,20 @@ const phonebookSchema = new mongoose.Schema({
   name:String,
   number:String,
 })
-const PhonebookModel = mongoose.model('Phonebook', phonebookSchema);
+const PhonebookModel = mongoose.model('Phonebook', phonebookSchema)
 
 PhonebookModel.find({}).then(result => {
 
   const newPhonebook = new PhonebookModel({
-  id: result.length + 1,
-  name : process.argv[3],
-  number: process.argv[4]
+    id: result.length + 1,
+    name : process.argv[3],
+    number: process.argv[4]
   })
   newPhonebook.save().then(result => {
-    console.log(`added ${result.name} number ${result.number} to phonebook`);
+    console.log(`added ${result.name} number ${result.number} to phonebook`)
     mongoose.connection.close()
   })
-}) 
+})
 
 // note.save().then(result => {
 //   console.log('note saved!')

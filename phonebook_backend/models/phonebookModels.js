@@ -9,7 +9,7 @@ const url = process.env.MONGODB_URI
 console.log('connecting to', url)
 mongoose.connect(url)
 
-  .then(result => {
+  .then(() => {
     console.log('connected to MongoDB')
   })
   .catch(error => {
@@ -29,5 +29,5 @@ phonebookSchema.set('toJSON', {
     delete returnedObject.__v
   }
 })
-const PhonebookModel = mongoose.model('Phonebook', phonebookSchema);
+const PhonebookModel = mongoose.model('Phonebook', phonebookSchema)
 module.exports = PhonebookModel
