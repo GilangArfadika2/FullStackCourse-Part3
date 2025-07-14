@@ -4,7 +4,7 @@ This repository contains my solutions for **Part 3** (Programming a server with 
 
 ## ✅ Completed Exercises
 
-I have completed and submitted exercises **3.1 to 3.18**.  
+I have completed and submitted exercises **3.1 to 3.22 (except 3.19 and 3.20)**.  
 Each exercise builds upon the previous one and is organized within a unified backend project structure using Node.js, Express, and MongoDB.
 
 ## 📁 Folder Structure
